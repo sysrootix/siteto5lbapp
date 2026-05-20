@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>5LB Personal Cabinet API — для Bitrix-сайта</title>
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --muted: #555;
+    --bg: #fafafa;
+    --code-bg: #f1f3f5;
+    --accent: #0b6cd6;
+    --warn-bg: #fff8e1;
+    --warn-bd: #f0c75e;
+    --danger-bg: #fdecec;
+    --danger-bd: #e88d8d;
+    --ok-bg: #e6f5ea;
+    --ok-bd: #84c79a;
+    --border: #e1e4e8;
+  }
+  body {
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 96px;
+  }
+  h1 { margin: 0 0 4px; font-size: 32px; }
+  h2 {
+    margin: 56px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--accent);
+    font-size: 24px;
+  }
+  h3 { margin: 28px 0 4px; font-size: 19px; }
+  h4 { margin: 18px 0 4px; font-size: 17px; color: var(--muted); }
+  p, li { color: var(--fg); }
+  .lead { font-size: 17px; color: var(--muted); margin-top: 0; }
+  code {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 14px;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 14px 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  .endpoint {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: 6px;
+  }
+  .m-get  { background: #1d8a36; }
+  .m-post { background: #0b6cd6; }
+  .m-patch{ background: #b06200; }
+  .m-del  { background: #b32a2a; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; }
+  th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    text-align: left;
+    font-size: 14.5px;
+  }
+  th { background: #f0f3f6; font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+  .b-bearer { background: #e8f1fc; color: #0b6cd6; }
+  .b-service { background: #f3e8fc; color: #6d3aae; }
+  .b-public { background: #e6f5ea; color: #1d8a36; }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: #eef4fc;
+    padding: 12px 16px;
+    margin: 14px 0;
+    border-radius: 4px;
+  }
+  .callout.warn { background: var(--warn-bg); border-color: var(--warn-bd); }
+  .callout.danger { background: var(--danger-bg); border-color: var(--danger-bd); }
+  .callout.ok { background: var(--ok-bg); border-color: var(--ok-bd); }
+  .toc {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin: 24px 0 32px;
+  }
+  .toc ul { margin: 4px 0; padding-left: 22px; }
+  .toc li { margin: 2px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>5LB Personal Cabinet API</h1>
+<p class="lead">REST API для интеграции личного кабинета на сайте Bitrix с loyalty-системой 5LB: авторизация, профиль, бонусные карты, списание бонусов при оформлении заказа.</p>
+
+<div class="callout">
+  <strong>Базовый URL.</strong> <code>https://mobile.5lb.pro/api/v1</code><br>
+  <strong>Контакты для интеграции.</strong> Backend-команда 5LB (выдача <code>X-Service-Key</code>, добавление домена в CORS).
+</div>
+
+<div class="toc">
+  <strong>Содержание:</strong>
+  <ul>
+    <li><a href="#concepts">1. Общие принципы (формат ответов, заголовки, CORS)</a></li>
+    <li><a href="#auth-overview">2. Авторизация — обзор каналов</a></li>
+    <li><a href="#auth-sms">3. Авторизация по SMS</a></li>
+    <li><a href="#auth-email">4. Авторизация по Email</a></li>
+    <li><a href="#auth-telegram-max">5. Авторизация через Telegram / MAX (seamless)</a></li>
+    <li><a href="#auth-vk">6. Авторизация через VK ID</a></li>
+    <li><a href="#auth-apple">7. Авторизация через Apple Sign In</a></li>
+    <li><a href="#auth-refresh">8. Обновление токенов и logout</a></li>
+    <li><a href="#profile">9. Профиль и контакты юзера</a></li>
+    <li><a href="#bonus-cards">10. Бонусные карты — список и балансы</a></li>
+    <li><a href="#web-orders">11. Заказы на сайте: списание бонусов</a></li>
+    <li><a href="#flow-bitrix">12. Полная схема интеграции Bitrix</a></li>
+    <li><a href="#errors">13. Справочник ошибок</a></li>
+    <li><a href="#security">14. Безопасность — чек-лист для разработчика</a></li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════════ 1. CONCEPTS -->
+<h2 id="concepts">1. Общие принципы</h2>
+
+<h3>Формат успешных ответов</h3>
+<p>Auth-эндпоинты исторически отдают «голый» JSON с <code>user</code>, <code>accessToken</code> и <code>refreshToken</code> на верхнем уровне — это байт-в-байт совпадает с мобильным клиентом 5LB и менять формат нельзя.</p>
+<p>Новые эндпоинты веб-кабинета (списание бонусов, статус заказа, refund) используют единый конверт:</p>
+<pre><code>{
+  "status": "success",
+  "data": { ... }
+}</code></pre>
+
+<h3>Формат ошибок</h3>
+<p>Веб-кабинет:</p>
+<pre><code>{
+  "status": "error",
+  "code": "CARD_NOT_OWNED",
+  "message": "Bonus card not found or does not belong to user"
+}</code></pre>
+<p>Auth (для совместимости с мобайлом):</p>
+<pre><code>{
+  "success": false,
+  "error": "CODE_INVALID",
+  "attemptsLeft": 2
+}</code></pre>
+
+<h3>HTTP-заголовки</h3>
+<table>
+  <thead><tr><th>Заголовок</th><th>Когда</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td><code>Content-Type: application/json</code></td><td>Все POST/PATCH</td><td>Бэк не принимает <code>application/x-www-form-urlencoded</code>.</td></tr>
+    <tr><td><code>Authorization: Bearer &lt;accessToken&gt;</code></td><td>Эндпоинты <span class="badge b-bearer">user&nbsp;JWT</span></td><td>JWT, полученный из любого auth-эндпоинта. TTL — 15 минут для refresh-флоу, permanent для phone/email OTP. Альтернатива — cookie <code>accessToken</code> (см. ниже).</td></tr>
+    <tr><td><code>X-Service-Key: &lt;secret&gt;</code></td><td>Эндпоинты <span class="badge b-service">service&nbsp;key</span></td><td>Секретный ключ Bitrix-бэка для server-to-server. <strong>Никогда</strong> не отдавать на фронт и не светить в JS. Получить у 5LB-команды.</td></tr>
+    <tr><td><code>X-City-Code: khabarovsk</code></td><td>Опционально, GET <code>/bonuses/cards</code></td><td>Фильтр по городу. Значения: <code>khabarovsk</code>, <code>vladivostok</code>, <code>blagoveshensk</code>, <code>komsomolsk</code> и т. п.</td></tr>
+  </tbody>
+</table>
+
+<h3>Cookie-режим (опционально)</h3>
+<p>Если SPA-кабинет хостится на <code>https://app.5lb.pro</code> или другом домене <code>*.5lb.pro</code>, бэкенд может отдавать <code>accessToken</code> / <code>refreshToken</code> в HttpOnly Set-Cookie. Endpoint <code>/auth/refresh</code> уже умеет читать токен из cookie. Для Bitrix-сайта на <strong>5lb.pro</strong> это самый безопасный режим (XSS не доберётся до токена). Подробнее — раздел <a href="#security">«Безопасность»</a>.</p>
+
+<h3>CORS</h3>
+<p>Браузер пускает запросы с домена сайта только если origin прописан в allowlist бэкенда. Перед интеграцией передайте 5LB-команде точные домены — например:</p>
+<pre><code>https://5lb.pro
+https://www.5lb.pro
+https://stage.5lb.pro</code></pre>
+<p>Без этого браузер ответит <code>CORS error</code> ещё до того, как запрос дойдёт до бэка.</p>
+
+<!-- ════════════════════════════════════════════════ 2. AUTH OVERVIEW -->
+<h2 id="auth-overview">2. Авторизация — обзор каналов</h2>
+
+<p>В кабинете поддерживаются 5 способов входа. Все они в итоге выдают <code>accessToken</code> и (опционально) <code>refreshToken</code>, после которых можно дёргать защищённые эндпоинты профиля и бонусов.</p>
+
+<table>
+  <thead><tr><th>Канал</th><th>Эндпоинт</th><th>Refresh-токен</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>SMS-код</td><td><code>POST /auth/phone/request</code> → <code>POST /auth/phone/verify</code></td><td>Нет (permanent JWT)</td><td>Оператор MTS Exolve. Если у юзера установлен Telegram — fallback на отправку кода через TG-бот.</td></tr>
+    <tr><td>Email-код</td><td><code>POST /auth/email/request</code> → <code>POST /auth/email/verify</code></td><td>Нет (permanent JWT)</td><td>SMTP-доставка кода.</td></tr>
+    <tr><td>Telegram / MAX</td><td><code>GET /auth/telegram/seamless/init</code> → polling <code>/auth/telegram/seamless/check/:token</code></td><td>Да (30 дней)</td><td>Универсальный «войти через бота» — работает и для Telegram, и для MAX. См. ниже.</td></tr>
+    <tr><td>VK ID</td><td><code>GET /auth/vk/state</code> → <code>POST /auth/vk/exchange</code></td><td>Да</td><td>OAuth2 с PKCE.</td></tr>
+    <tr><td>Apple Sign In</td><td><code>POST /auth/apple/verify</code></td><td>Да</td><td>Apple JS на сайте отдаёт identityToken — бэк проверяет подпись.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <strong>Что НЕ дают авторизованные эндпоинты:</strong> токен <strong>не</strong> привязан к IP — кража токена (XSS) равносильна угону аккаунта. Используйте HttpOnly cookie или храните access-токен только в памяти JS (не в localStorage), refresh-токен — только в HttpOnly cookie. Бэк сам ставит cookie при auth-ответе для доменов <code>*.5lb.pro</code>.
+</div>
+
+<!-- ════════════════════════════════════════════════ 3. SMS -->
+<h2 id="auth-sms">3. Авторизация по SMS</h2>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/phone/request</code> <span class="badge b-public">public</span></h3>
+<p>Запрашивает отправку 4-значного OTP на номер телефона. Rate-limit: 1 SMS в минуту на номер, 3 в час, 5 в сутки.</p>
+<h4>Request</h4>
+<pre><code>POST /api/v1/auth/phone/request
+Content-Type: application/json
+
+{
+  "phone": "+79141234567",
+  "deviceFingerprint": "browser:chrome:linux:..."   // опционально, для anti-fraud
+}</code></pre>
+<h4>Response 200</h4>
+<pre><code>{
+  "success": true,
+  "requestId": "01HJZ5...",
+  "expiresAt": "2026-05-20T12:34:56.000Z",
+  "channel": "sms",        // "sms" | "telegram" (если у юзера есть TG — бот может отправить код)
+  "maskedDestination": "+79141***567"
+}</code></pre>
+<h4>Возможные ошибки</h4>
+<table>
+  <thead><tr><th>HTTP</th><th>code/error</th><th>Что показать</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td><code>INVALID_PHONE</code></td><td>«Неверный формат номера»</td></tr>
+    <tr><td>429</td><td><code>rate_limited</code> + <code>Retry-After: 60</code></td><td>«Повторите через N сек.»</td></tr>
+    <tr><td>503</td><td><code>SMS_PROVIDER_UNAVAILABLE</code></td><td>«Не удалось отправить SMS, попробуйте позже»</td></tr>
+  </tbody>
+</table>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/phone/verify</code> <span class="badge b-public">public</span></h3>
+<p>Проверяет OTP и выдаёт permanent JWT. 5 попыток, потом код блокируется. Создаёт юзера при первом входе.</p>
+<h4>Request</h4>
+<pre><code>POST /api/v1/auth/phone/verify
+Content-Type: application/json
+
+{
+  "phone": "+79141234567",
+  "code":  "1234",
+  "deviceName": "Bitrix Web",
+  "appVersion": "1.0.0",
+  "platform":   "web",
+  "referralCode": "ABC123"     // опционально (приведённый код реферала)
+}</code></pre>
+<h4>Response 200</h4>
+<pre><code>{
+  "success": true,
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": null,                       // SMS-OTP без refresh
+  "isNewUser": false,
+  "user": {
+    "id": "ckxyz...",
+    "phone": "+79141234567",
+    "email": null,
+    "firstName": "Никита",
+    "lastName": "Тер.",
+    "displayName": "Никита Т.",
+    "bonusBalance": 1250,
+    "currentCityCode": "khabarovsk",
+    "isRegistrationComplete": true,
+    "bonusCards": [ /* см. п.10 */ ],
+    "addresses": [ ... ],
+    "referrals": [ ... ],
+    "createdAt": "2024-09-12T10:11:22.000Z"
+  }
+}</code></pre>
+<h4>Ошибки</h4>
+<table>
+  <thead><tr><th>HTTP</th><th>error</th><th>Что значит</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td><code>MISSING_CODE</code>, <code>CODE_INVALID_FORMAT</code>, <code>CODE_NOT_FOUND</code></td><td>Опечатка в форме / код просрочен.</td></tr>
+    <tr><td>403</td><td><code>CODE_INVALID</code> + <code>attemptsLeft</code></td><td>Неверный код, показать счётчик попыток.</td></tr>
+    <tr><td>403</td><td><code>CODE_INVALID_LOCKED</code></td><td>Попытки исчерпаны, запросить новый код.</td></tr>
+    <tr><td>410</td><td><code>CODE_EXPIRED</code></td><td>Просрочен — запросить новый.</td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════ 4. EMAIL -->
+<h2 id="auth-email">4. Авторизация по Email</h2>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/email/request</code> <span class="badge b-public">public</span></h3>
+<pre><code>POST /api/v1/auth/email/request
+Content-Type: application/json
+
+{
+  "email": "user@example.com"
+}</code></pre>
+<p>Аналогично SMS: rate-limit 1/мин, отправляется письмо с 6-значным кодом, TTL 10 минут.</p>
+<pre><code>{
+  "success": true,
+  "requestId": "01HJZ5...",
+  "expiresAt": "2026-05-20T12:34:56.000Z",
+  "maskedDestination": "u***@example.com"
+}</code></pre>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/email/verify</code> <span class="badge b-public">public</span></h3>
+<pre><code>POST /api/v1/auth/email/verify
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "code":  "123456",
+  "platform": "web"
+}</code></pre>
+<p>Ответ идентичен <code>/auth/phone/verify</code> (permanent JWT, <code>refreshToken: null</code>, поле <code>user</code>).</p>
+
+<!-- ════════════════════════════════════════════════ 5. TG / MAX -->
+<h2 id="auth-telegram-max">5. Авторизация через Telegram / MAX (seamless)</h2>
+
+<p>Один универсальный flow для двух мессенджеров: фронт получает временный токен и две deep-link'и (в Telegram-бота и в MAX-бота). Юзер открывает любую — бот авторизует на сервере, фронт поллит статус.</p>
+
+<h3>Шаг 1. <span class="endpoint m-get">GET</span> <code>/auth/telegram/seamless/init</code></h3>
+<pre><code>GET /api/v1/auth/telegram/seamless/init
+
+→ 200 OK
+{
+  "authToken":           "abc123def456...",          // непредсказуемый opaque token
+  "telegramDeepLink":    "https://t.me/lb5_bot?start=auth_abc123def456",
+  "telegramBotUsername": "lb5_bot",
+  "maxDeepLink":         "https://max.ru/lb5_max_bot?start=auth_abc123def456",
+  "maxBotUsername":      "lb5_max_bot",
+  "expiresAt":           "2026-05-20T13:00:00.000Z"  // 10 минут
+}</code></pre>
+<p>Сайт показывает 2 кнопки: «Войти через Telegram» (открывает <code>telegramDeepLink</code> в новом окне) и «Войти через MAX» (<code>maxDeepLink</code>). После клика начинаем polling.</p>
+
+<h3>Шаг 2. <span class="endpoint m-get">GET</span> <code>/auth/telegram/seamless/check/:authToken</code></h3>
+<p>Polling. Рекомендуемый интервал — 2 секунды. До 5 минут (потом — токен просрочен).</p>
+<pre><code>GET /api/v1/auth/telegram/seamless/check/abc123def456...
+
+→ 200 OK  (юзер ещё не открыл бота)
+{ "status": "pending" }
+
+→ 200 OK  (юзер открыл и нажал Start)
+{
+  "status": "completed",
+  "accessToken":  "eyJhbGci...",
+  "refreshToken": "f5e7c9a2...",   // 30 дней
+  "user": { /* полный UserDto */ }
+}
+
+→ 410 Gone (просрочен)
+{ "status": "expired" }</code></pre>
+
+<div class="callout">
+  <strong>Один flow — два мессенджера.</strong> Бэк сам определяет, откуда юзер пришёл (TG или MAX) по callback бота. Если у юзера уже привязан номер телефона, оба мессенджера сольются в один аккаунт автоматически.
+</div>
+
+<!-- ════════════════════════════════════════════════ 6. VK -->
+<h2 id="auth-vk">6. Авторизация через VK ID</h2>
+
+<h3>Шаг 1. <span class="endpoint m-get">GET</span> <code>/auth/vk/state</code></h3>
+<p>Получаем <code>state</code> (CSRF) и <code>code_challenge</code> (PKCE) — нужны для редиректа в VK.</p>
+<pre><code>GET /api/v1/auth/vk/state
+→ 200 OK
+{
+  "state":         "01HJZ...",
+  "codeChallenge": "abc123def...",
+  "codeChallengeMethod": "S256",
+  "redirectUri":   "https://5lb.pro/auth/vk/callback"
+}</code></pre>
+<p>Фронт делает редирект:</p>
+<pre><code>https://id.vk.com/authorize?
+  response_type=code&
+  client_id=&lt;VK_APP_ID&gt;&
+  redirect_uri=https://5lb.pro/auth/vk/callback&
+  state=&lt;state&gt;&
+  code_challenge=&lt;codeChallenge&gt;&
+  code_challenge_method=S256&
+  scope=email</code></pre>
+
+<h3>Шаг 2. <span class="endpoint m-post">POST</span> <code>/auth/vk/exchange</code></h3>
+<p>На callback-странице (<code>/auth/vk/callback?code=…&state=…</code>) фронт отправляет:</p>
+<pre><code>POST /api/v1/auth/vk/exchange
+Content-Type: application/json
+
+{
+  "code":         "1234567890abc",
+  "state":        "01HJZ...",       // тот же, что получили из /vk/state
+  "deviceId":     "&lt;device_id из VK&gt;"
+}
+
+→ 200 OK
+{
+  "success": true,
+  "accessToken":  "eyJ...",
+  "refreshToken": "f5e7c9a2...",
+  "user": { ... }
+}</code></pre>
+
+<!-- ════════════════════════════════════════════════ 7. APPLE -->
+<h2 id="auth-apple">7. Авторизация через Apple Sign In</h2>
+
+<p>На сайте подключаете Apple JS SDK, конфигурируете <code>clientId</code> = ваш Service ID, инициируете <code>AppleID.auth.signIn()</code>. Apple возвращает <code>identityToken</code>:</p>
+<pre><code>POST /api/v1/auth/apple/verify
+Content-Type: application/json
+
+{
+  "identityToken": "eyJraWQiOiJ...",
+  "user": {                            // приходит только при ПЕРВОМ входе
+    "name":  { "firstName": "Никита", "lastName": "Т." },
+    "email": "abc123@privaterelay.appleid.com"
+  },
+  "platform": "web"
+}
+
+→ 200 OK
+{
+  "success": true,
+  "accessToken":  "eyJ...",
+  "refreshToken": "f5e7c9a2...",
+  "user": { ... }
+}</code></pre>
+
+<!-- ════════════════════════════════════════════════ 8. REFRESH/LOGOUT -->
+<h2 id="auth-refresh">8. Обновление токенов и logout</h2>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/refresh</code></h3>
+<p>Используется для Telegram/MAX/VK/Apple (где есть refreshToken). SMS/Email — permanent JWT, refresh не нужен.</p>
+<pre><code>POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "f5e7c9a2..."
+}
+
+# либо пустое тело — токен возьмётся из cookie `refreshToken`
+
+→ 200 OK
+{
+  "accessToken":  "новый JWT",
+  "refreshToken": "новый refresh (ротация)",
+  "user":         { ... }
+}</code></pre>
+<p>Rate-limit: 5 попыток / 60 сек на IP. Старый refresh после ротации становится невалидным.</p>
+
+<h3><span class="endpoint m-post">POST</span> <code>/auth/logout</code> <span class="badge b-bearer">user JWT</span></h3>
+<pre><code>POST /api/v1/auth/logout
+Authorization: Bearer &lt;accessToken&gt;
+
+→ 200 OK
+{ "success": true }</code></pre>
+
+<h3><span class="endpoint m-get">GET</span> <code>/auth/me</code> <span class="badge b-bearer">user JWT</span></h3>
+<p>Тестовый эндпоинт «кто я» — возвращает полный <code>UserDto</code> (тот же, что в auth-ответах). Удобно для проверки валидности токена и подгрузки данных в шапку кабинета.</p>
+
+<!-- ════════════════════════════════════════════════ 9. PROFILE -->
+<h2 id="profile">9. Профиль и контакты юзера</h2>
+
+<h3><span class="endpoint m-get">GET</span> <code>/profile/settings</code> <span class="badge b-bearer">user JWT</span></h3>
+<p>Полная карточка профиля для страницы «Настройки» в кабинете.</p>
+<pre><code>GET /api/v1/profile/settings
+Authorization: Bearer &lt;accessToken&gt;
+
+→ 200 OK
+{
+  "profile": {
+    "firstName":   "Никита",
+    "lastName":    "Терёхин",
+    "patronymic":  "Сергеевич",
+    "email":       "user@example.com",
+    "dateOfBirth": "2004-09-12",
+    "gender":      "MALE",
+    "avatar":      "https://...",
+    "birthdayCooldownDays": null
+  },
+  "notifications": {
+    "push":     true,
+    "telegram": true,
+    "sms":      false,
+    "email":    true,
+    "personal": true
+  },
+  "contacts": {
+    "phone":             "+79141234567",
+    "telegramLinked":    true,
+    "telegramUsername":  "nikita"
+  },
+  "notificationCityCodes": ["khabarovsk", "vladivostok"]
+}</code></pre>
+
+<h3><span class="endpoint m-patch">PATCH</span> <code>/profile</code> <span class="badge b-bearer">user JWT</span></h3>
+<p>Partial update. <code>null</code> — очистить поле, отсутствие ключа — не трогать.</p>
+<pre><code>PATCH /api/v1/profile
+Authorization: Bearer &lt;accessToken&gt;
+Content-Type: application/json
+
+{
+  "firstName": "Никита",
+  "email":     "new@example.com",
+  "dateOfBirth": "2004-09-12",
+  "notifications": { "email": true, "sms": false }
+}
+
+→ 200 OK
+{ "success": true, "message": "Profile updated" }</code></pre>
+
+<!-- ════════════════════════════════════════════════ 10. BONUS CARDS -->
+<h2 id="bonus-cards">10. Бонусные карты — список и балансы</h2>
+
+<h3><span class="endpoint m-get">GET</span> <code>/bonuses/cards</code> <span class="badge b-bearer">user JWT</span></h3>
+<p>Возвращает все активные бонусные карты юзера с балансами и метаданными. Если юзер ни разу не получал карту в текущем городе — будет lazy-создана BASE-карта.</p>
+<pre><code>GET /api/v1/bonuses/cards
+Authorization: Bearer &lt;accessToken&gt;
+X-City-Code: khabarovsk          // опционально
+
+→ 200 OK
+{
+  "data": [
+    {
+      "id":         "ckxyz-abc123",            // ← это userCardId, нужен для списания
+      "cardCode":   "BASE",                    // BASE | FOUNDER | PARTNER | EMPLOYEE | BLOGGER
+      "cardName":   "Базовая карта 5LB",
+      "balance":    1250,                      // текущий баланс в бонусах
+      "cityCode":   "khabarovsk",
+      "qrCode":     "5LB-XXXXX-XXXXX",
+      "isActive":   true,
+      "settings":   {
+        "maxRedemptionPercent": 35             // максимум 35% от чека можно списать
+      },
+      "transactions": [
+        {
+          "id":          "tx-abc",
+          "amount":      150,
+          "type":        "ACCRUAL",            // ACCRUAL | REDEMPTION | REFUND | PENDING | PARTNER_ACCRUAL
+          "description": "Покупка в Хабаровске",
+          "createdAt":   "2026-05-19T14:32:11.000Z"
+        }
+      ]
+    }
+  ]
+}</code></pre>
+
+<h3><span class="endpoint m-get">GET</span> <code>/bonuses/stats</code> <span class="badge b-bearer">user JWT</span></h3>
+<pre><code>→ 200 OK
+{ "totalSaved": 3450 }   // сколько юзер сэкономил за всё время</code></pre>
+
+<!-- ════════════════════════════════════════════════ 11. WEB ORDERS -->
+<h2 id="web-orders">11. Заказы на сайте: списание бонусов</h2>
+
+<p>Это новый блок endpoint'ов, специально для Bitrix. Идея: при оформлении заказа на сайте юзер выбирает бонусную карту и сколько бонусов списать. Bitrix-бэк дёргает наш бэк, который атомарно списывает бонусы и пишет «фискальную» запись заказа. При отмене заказа — refund.</p>
+
+<div class="callout">
+  <strong>Eager-deduct.</strong> Бонусы списываются <strong>сразу</strong> при создании заказа. Если заказ отменён или товар возвращён — Bitrix-бэк вызывает refund, мы возвращаем бонусы на ту же карту. Транзакционно, идемпотентно по <code>externalId</code>.
+</div>
+
+<!-- 11.1 QUOTE -->
+<h3>11.1 <span class="endpoint m-post">POST</span> <code>/web/orders/quote</code> <span class="badge b-bearer">user JWT</span></h3>
+<p>Read-only превью: «сколько максимум можно списать с этой карты, если чек на X рублей и юзер хочет Y бонусов». Применяет правило <code>maxRedemptionPercent</code> и обрезает по балансу. <strong>Ничего не пишет в БД.</strong></p>
+
+<h4>Request</h4>
+<pre><code>POST /api/v1/web/orders/quote
+Authorization: Bearer &lt;accessToken&gt;
+Content-Type: application/json
+
+{
+  "userCardId":     "ckxyz-abc123",
+  "totalSumRub":    2500.00,
+  "requestedBonus": 1000
+}</code></pre>
+
+<h4>Response 200</h4>
+<pre><code>{
+  "status": "success",
+  "data": {
+    "userCardId":              "ckxyz-abc123",
+    "cardCode":                "BASE",
+    "cardName":                "Базовая карта 5LB",
+    "cardBalance":             1250,
+    "maxRedemptionPercent":    35,           // правило карты
+    "totalSumRub":             2500,
+    "requestedBonus":          1000,
+    "effectiveBonus":          875,          // 35% от 2500 = 875, обрезано
+    "wasClipped":              true,         // да, обрезано (1000 → 875)
+    "cardBalanceAfterPreview": 375,
+    "amountToPayRub":          1625.00       // = 2500 - 875
+  }
+}</code></pre>
+
+<h4>UX-подсказка</h4>
+<p>Покажите юзеру слайдер «бонусы к списанию» с максимумом = <code>min(balance, totalSum * percent / 100)</code>. На каждое изменение слайдера — quote-запрос (либо считайте локально, формула та же).</p>
+
+<!-- 11.2 CREATE -->
+<h3>11.2 <span class="endpoint m-post">POST</span> <code>/web/orders</code> <span class="badge b-service">service key</span> <span class="badge b-bearer">user JWT</span></h3>
+<p>Создаёт заказ + атомарно списывает бонусы. <strong>Дёргается с Bitrix-бэка</strong> (нужен service key), но обязательно с пробросом user JWT — иначе нельзя проверить, что карта принадлежит этому юзеру.</p>
+
+<h4>Idempotency</h4>
+<p>Параметр <code>externalId</code> — идентификатор заказа в Bitrix. Повторный запрос с тем же <code>externalId</code> вернёт <code>"duplicate": true</code> и НЕ повторит списание. Рекомендуемый формат: <code>"bitrix:&lt;ORDER_ID&gt;"</code>.</p>
+
+<h4>Request</h4>
+<pre><code>POST /api/v1/web/orders
+X-Service-Key: &lt;WEB_SERVICE_API_KEY&gt;
+Authorization: Bearer &lt;user accessToken&gt;
+Content-Type: application/json
+
+{
+  "externalId":   "bitrix:200410",
+  "userCardId":   "ckxyz-abc123",
+  "totalSumRub":  2500.00,
+  "bonusAmount":  875,                    // итог из /quote
+  "cityCode":     "khabarovsk",           // опционально, иначе берётся cityCode карты
+  "shopName":     "5lb.pro web",          // опционально, попадает в CRM
+  "orderMeta": {                          // опционально, произвольный JSON
+    "bitrixOrderId":  200410,
+    "deliveryType":   "courier",
+    "courierAddress": "Хабаровск, ул. ..."
+  }
+}</code></pre>
+
+<h4>Response 200 — обычное создание</h4>
+<pre><code>{
+  "status": "success",
+  "data": {
+    "orderId":            "01HJZA1B...",     // наш внутренний id (purchases.id)
+    "externalId":         "bitrix:200410",
+    "userId":             "ckxyz-user1",
+    "userCardId":         "ckxyz-abc123",
+    "cardCode":           "BASE",
+    "totalSumRub":        2500.0,
+    "bonusDeducted":      875,
+    "wasClipped":         false,             // у юзера запрос совпал с лимитом
+    "cardBalanceAfter":   375,
+    "cityCode":           "khabarovsk",
+    "status":             "DEDUCTED",
+    "createdAt":          "2026-05-20T13:01:42.000Z"
+  }
+}</code></pre>
+
+<h4>Response 200 — повторный запрос с тем же externalId</h4>
+<pre><code>{
+  "status": "success",
+  "data": {
+    "orderId":            "01HJZA1B...",
+    "externalId":         "bitrix:200410",
+    "duplicate":          true,
+    "bonusDeducted":      875,
+    "status":             "DEDUCTED",
+    "cardBalanceAfter":   375,
+    ...
+  }
+}</code></pre>
+
+<h4>Ошибки</h4>
+<table>
+  <thead><tr><th>HTTP</th><th>code</th><th>Когда</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td><code>MISSING_EXTERNAL_ID</code></td><td>Пустой <code>externalId</code>.</td></tr>
+    <tr><td>400</td><td><code>INVALID_TOTAL_SUM</code></td><td><code>totalSumRub ≤ 0</code> или не число.</td></tr>
+    <tr><td>400</td><td><code>INVALID_BONUS_AMOUNT</code></td><td><code>bonusAmount &lt; 0</code>.</td></tr>
+    <tr><td>401</td><td><code>UNAUTHORIZED</code></td><td>Нет/невалиден user JWT.</td></tr>
+    <tr><td>401</td><td><code>NO_SERVICE_KEY</code></td><td>Нет <code>X-Service-Key</code>.</td></tr>
+    <tr><td>403</td><td><code>INVALID_SERVICE_KEY</code></td><td>Сервисный ключ не совпадает.</td></tr>
+    <tr><td>403</td><td><code>CARD_INACTIVE</code></td><td>Карта отключена админом.</td></tr>
+    <tr><td>404</td><td><code>CARD_NOT_FOUND</code></td><td>Карты с таким <code>userCardId</code> у юзера нет.</td></tr>
+    <tr><td>409</td><td><code>EXTERNAL_ID_TAKEN</code></td><td><code>externalId</code> уже занят чеком из 1C — конфликт префиксов.</td></tr>
+  </tbody>
+</table>
+
+<!-- 11.3 GET -->
+<h3>11.3 <span class="endpoint m-get">GET</span> <code>/web/orders/:externalId</code> <span class="badge b-service">service key</span></h3>
+<p>Статус заказа по <code>externalId</code>. Используется для сверки и для отображения «возвращён / не возвращён» в админке Bitrix.</p>
+<pre><code>GET /api/v1/web/orders/bitrix:200410
+X-Service-Key: &lt;...&gt;
+
+→ 200 OK
+{
+  "status": "success",
+  "data": {
+    "orderId":          "01HJZA1B...",
+    "externalId":       "bitrix:200410",
+    "userId":           "ckxyz-user1",
+    "userCardId":       "ckxyz-abc123",
+    "cardCode":         "BASE",
+    "totalSumRub":      2500.0,
+    "bonusDeducted":    875,
+    "cardBalanceAfter": 375,                  // текущий баланс карты
+    "cityCode":         "khabarovsk",
+    "status":           "DEDUCTED",           // "DEDUCTED" | "REFUNDED"
+    "createdAt":        "2026-05-20T13:01:42.000Z",
+    "refundedAt":       null                  // или ISO-время refund'а
+  }
+}
+
+→ 404 Not Found
+{
+  "status": "error",
+  "code": "ORDER_NOT_FOUND",
+  "message": "Order with this externalId not found"
+}</code></pre>
+
+<!-- 11.4 REFUND -->
+<h3>11.4 <span class="endpoint m-post">POST</span> <code>/web/orders/:externalId/refund</code> <span class="badge b-service">service key</span></h3>
+<p>Возвращает списанные бонусы на ту же карту. <strong>Server-to-server only</strong> — user JWT не нужен (refund инициирует кассовая логика Bitrix, а не сам юзер).</p>
+
+<h4>Request</h4>
+<pre><code>POST /api/v1/web/orders/bitrix:200410/refund
+X-Service-Key: &lt;...&gt;
+Content-Type: application/json
+
+{
+  "refundExternalId": "bitrix:200410:refund",   // опционально, для своей идемпотентности
+  "reason":           "Заказ отменён юзером"     // опционально, попадает в CRM
+}</code></pre>
+
+<h4>Response 200</h4>
+<pre><code>{
+  "status": "success",
+  "data": {
+    "refundId":            "01HJZB7Y...",
+    "refundExternalId":    "bitrix:200410:refund",
+    "originalOrderId":     "01HJZA1B...",
+    "originalExternalId":  "bitrix:200410",
+    "bonusRestored":       875,
+    "userCardId":          "ckxyz-abc123",
+    "cardBalanceAfter":    1250,                  // вернулись назад
+    "refundedAt":          "2026-05-20T14:11:03.000Z"
+  }
+}</code></pre>
+
+<h4>Идемпотентность refund</h4>
+<p>Повторный refund по тому же оригиналу вернёт <code>"duplicate": true</code> и НЕ изменит баланс ещё раз. То же самое если бэк уже видел этот <code>refundExternalId</code>.</p>
+
+<h4>Ошибки</h4>
+<table>
+  <thead><tr><th>HTTP</th><th>code</th><th>Когда</th></tr></thead>
+  <tbody>
+    <tr><td>400</td><td><code>NOT_AN_ORDER</code></td><td><code>externalId</code> указывает на refund-документ, а не на оригинальный заказ.</td></tr>
+    <tr><td>404</td><td><code>ORDER_NOT_FOUND</code></td><td>Оригинал с таким <code>externalId</code> не найден (или это не web-заказ).</td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════ 12. INTEGRATION FLOW -->
+<h2 id="flow-bitrix">12. Полная схема интеграции Bitrix</h2>
+
+<p>Реалистичный сценарий: юзер кликает «личный кабинет» на сайте 5lb.pro, авторизуется, заходит в корзину, оформляет заказ со списанием бонусов, потом отменяет.</p>
+
+<h3>12.1 Архитектура</h3>
+<pre><code>┌─────────────┐     CORS      ┌──────────────────┐
+│  Браузер    │ ────────────▶ │ Bitrix front-JS  │
+│ (5lb.pro)   │               │  (вход, профиль) │
+└─────────────┘               └────────┬─────────┘
+       ▲                               │ CORS
+       │ HttpOnly cookie               │ Authorization: Bearer ...
+       │                               ▼
+       │                       ┌──────────────────────┐
+       │                       │  5LB API (Rust)       │
+       │                       │  mobile.5lb.pro       │
+       │                       │  /api/v1/auth/...     │
+       │                       │  /api/v1/bonuses/...  │
+       │                       │  /api/v1/web/orders   │
+       │                       └──────────────────────┘
+       │                               ▲
+       │                               │ X-Service-Key + Bearer
+       │ Order POST (form)             │
+       ▼                               │
+┌──────────────────┐  server-to-server │
+│ Bitrix PHP backend ├───────────────────┘
+│ (заказ в БД 1C)   │
+└──────────────────┘</code></pre>
+
+<h3>12.2 Пошаговый flow</h3>
+
+<ol>
+  <li><strong>Вход.</strong> Юзер на сайте кликает «Войти», получает форму с SMS / Email / Telegram / VK / Apple. Фронт делает <code>/auth/&lt;channel&gt;/...</code>, бэк выдаёт <code>accessToken</code> + (опц.) <code>refreshToken</code>.</li>
+  <li><strong>Хранение токена.</strong> Бэк ставит <code>Set-Cookie: accessToken=...; HttpOnly; Secure; SameSite=Lax; Domain=.5lb.pro</code> при auth-ответе. Фронт ничего не пишет в localStorage — токены живут в cookie. Все последующие запросы идут с этой cookie автоматически.</li>
+  <li><strong>Шапка кабинета.</strong> Фронт дёргает <code>GET /auth/me</code> → имя, бонусы, аватар.</li>
+  <li><strong>Страница профиля.</strong> <code>GET /profile/settings</code> + <code>PATCH /profile</code> на сохранение.</li>
+  <li><strong>Бонусные карты.</strong> На странице «Мои карты» — <code>GET /bonuses/cards</code>. Если карт несколько, юзер видит баланс по каждой.</li>
+  <li><strong>Checkout.</strong> Юзер собрал корзину на сайте Bitrix (это происходит чисто на стороне Bitrix, без участия 5LB-бэка). На странице checkout фронт показывает блок «Списать бонусы»:
+    <ul>
+      <li>Подгружает карты юзера → юзер выбирает одну → фронт знает <code>userCardId</code> и баланс.</li>
+      <li>Слайдер «сколько списать», максимум = <code>min(balance, totalSum * maxRedemptionPercent / 100)</code>.</li>
+      <li>На каждое изменение слайдера — <code>POST /web/orders/quote</code> → отрисовать <code>amountToPayRub</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Submit заказа.</strong> Юзер жмёт «Оплатить». Фронт сабмитит форму Bitrix (стандартный путь Bitrix). PHP-бэк Bitrix:
+    <ul>
+      <li>Создаёт заказ в своей БД, получает <code>$orderId</code>.</li>
+      <li>Дёргает наш бэк (см. PHP-пример ниже) с <code>externalId = "bitrix:$orderId"</code>, <code>userCardId</code>, <code>totalSumRub</code>, <code>bonusAmount</code>. Передаёт Authorization юзера из cookie.</li>
+      <li>Получает <code>bonusDeducted</code> и <code>cardBalanceAfter</code> — записывает в свой заказ для отчётности.</li>
+      <li>Если бэк вернул 4xx/5xx — Bitrix отменяет создание заказа (или хранит pending-flag) и показывает юзеру ошибку.</li>
+    </ul>
+  </li>
+  <li><strong>Отмена заказа.</strong> Если заказ отменили (юзер, менеджер, оплата не прошла) — Bitrix вызывает <code>POST /web/orders/&lt;externalId&gt;/refund</code> с тем же service-key. Бонусы возвращаются на карту мгновенно. Идемпотентно — можно вызвать несколько раз.</li>
+  <li><strong>Сверка.</strong> Bitrix-бэк периодически (раз в час) дёргает <code>GET /web/orders/&lt;externalId&gt;</code> для своих ещё не закрытых заказов, чтобы проверить статус (DEDUCTED / REFUNDED) — детектирует расхождения.</li>
+</ol>
+
+<h3>12.3 Bitrix PHP — пример create_order</h3>
+<pre><code>&lt;?php
+// $userAccessToken взят из cookie 'accessToken'
+// $userCardId, $bonusAmount, $totalSum — пришли с фронта (валидируем!)
+// $orderId — id заказа в Bitrix
+
+$payload = [
+    'externalId'   =&gt; "bitrix:{$orderId}",
+    'userCardId'   =&gt; $userCardId,
+    'totalSumRub'  =&gt; (float)$totalSum,
+    'bonusAmount'  =&gt; (int)$bonusAmount,
+    'shopName'     =&gt; '5lb.pro web',
+    'orderMeta'    =&gt; [
+        'bitrixOrderId' =&gt; $orderId,
+    ],
+];
+
+$ch = curl_init('https://mobile.5lb.pro/api/v1/web/orders');
+curl_setopt_array($ch, [
+    CURLOPT_POST           =&gt; true,
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_TIMEOUT        =&gt; 10,
+    CURLOPT_HTTPHEADER     =&gt; [
+        'Content-Type: application/json',
+        'X-Service-Key: ' . WEB_SERVICE_API_KEY,        // лежит в config'е, НЕ в репо
+        'Authorization: Bearer ' . $userAccessToken,
+    ],
+    CURLOPT_POSTFIELDS     =&gt; json_encode($payload, JSON_UNESCAPED_UNICODE),
+]);
+$body = curl_exec($ch);
+$http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($http &lt; 200 || $http &gt;= 300) {
+    error_log("5LB deduct failed: HTTP $http, body=$body");
+    throw new Exception('Не удалось списать бонусы');
+}
+
+$resp = json_decode($body, true);
+$deducted   = $resp['data']['bonusDeducted'];
+$balance    = $resp['data']['cardBalanceAfter'];
+$duplicate  = $resp['data']['duplicate'] ?? false;
+
+// Сохраняем в карточку заказа для отчётности
+$order-&gt;setField('5LB_BONUS_DEDUCTED', $deducted);
+$order-&gt;setField('5LB_PURCHASE_ID',    $resp['data']['orderId']);</code></pre>
+
+<h3>12.4 Bitrix PHP — пример refund</h3>
+<pre><code>&lt;?php
+// $orderId — id заказа в Bitrix
+$externalId = "bitrix:{$orderId}";
+
+$ch = curl_init("https://mobile.5lb.pro/api/v1/web/orders/{$externalId}/refund");
+curl_setopt_array($ch, [
+    CURLOPT_POST           =&gt; true,
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_TIMEOUT        =&gt; 10,
+    CURLOPT_HTTPHEADER     =&gt; [
+        'Content-Type: application/json',
+        'X-Service-Key: ' . WEB_SERVICE_API_KEY,
+    ],
+    CURLOPT_POSTFIELDS     =&gt; json_encode([
+        'refundExternalId' =&gt; "bitrix:{$orderId}:refund",
+        'reason'           =&gt; 'Заказ отменён менеджером',
+    ]),
+]);
+$body = curl_exec($ch);
+$http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($http &lt; 200 || $http &gt;= 300) {
+    error_log("5LB refund failed: HTTP $http, body=$body");
+    // Не падаем — переслать в очередь повтора, refund идемпотентен
+    return;
+}
+
+$resp = json_decode($body, true);
+$restored = $resp['data']['bonusRestored'];</code></pre>
+
+<!-- ════════════════════════════════════════════════ 13. ERRORS -->
+<h2 id="errors">13. Справочник ошибок</h2>
+
+<h3>Веб-кабинет (<code>{status,code,message}</code>)</h3>
+<table>
+  <thead><tr><th>code</th><th>HTTP</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td><code>UNAUTHORIZED</code></td><td>401</td><td>Нет/невалидный user JWT.</td></tr>
+    <tr><td><code>NO_SERVICE_KEY</code></td><td>401</td><td>Отсутствует заголовок <code>X-Service-Key</code> на эндпоинте, где он нужен.</td></tr>
+    <tr><td><code>INVALID_SERVICE_KEY</code></td><td>403</td><td>Ключ не совпадает с серверным.</td></tr>
+    <tr><td><code>MISSING_EXTERNAL_ID</code></td><td>400</td><td>Пустой <code>externalId</code> в create.</td></tr>
+    <tr><td><code>INVALID_EXTERNAL_ID</code></td><td>400</td><td><code>externalId</code> длиннее 191 символа.</td></tr>
+    <tr><td><code>INVALID_TOTAL_SUM</code></td><td>400</td><td><code>totalSumRub</code> отрицательный / не число / <code>NaN</code>.</td></tr>
+    <tr><td><code>INVALID_BONUS_AMOUNT</code></td><td>400</td><td><code>bonusAmount</code> или <code>requestedBonus</code> отрицательный.</td></tr>
+    <tr><td><code>CARD_NOT_FOUND</code></td><td>404</td><td>Карты с этим id у юзера нет (или вообще нет такой).</td></tr>
+    <tr><td><code>CARD_INACTIVE</code></td><td>403</td><td>Карта помечена админом как неактивная.</td></tr>
+    <tr><td><code>EXTERNAL_ID_TAKEN</code></td><td>409</td><td><code>externalId</code> уже занят чеком другого источника (например, 1C).</td></tr>
+    <tr><td><code>ORDER_NOT_FOUND</code></td><td>404</td><td>Заказ с таким <code>externalId</code> отсутствует или не является веб-заказом.</td></tr>
+    <tr><td><code>NOT_AN_ORDER</code></td><td>400</td><td>Refund вызван на refund-документ.</td></tr>
+    <tr><td><code>INTERNAL_ERROR</code></td><td>500</td><td>Что-то пошло не так — повторить запрос; ошибка залогирована.</td></tr>
+  </tbody>
+</table>
+
+<h3>Auth-эндпоинты (<code>{success,error,attemptsLeft?}</code>)</h3>
+<table>
+  <thead><tr><th>error</th><th>HTTP</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td><code>INVALID_PHONE</code></td><td>400</td><td>Не распарсился E.164.</td></tr>
+    <tr><td><code>MISSING_CODE</code></td><td>400</td><td>Пустой OTP.</td></tr>
+    <tr><td><code>CODE_INVALID_FORMAT</code></td><td>400</td><td>Не 4 цифры (SMS) / не 6 цифр (Email).</td></tr>
+    <tr><td><code>CODE_NOT_FOUND</code></td><td>400</td><td>Кода для этого номера/email нет (просрочен или не запрашивали).</td></tr>
+    <tr><td><code>CODE_INVALID</code></td><td>403</td><td>Неверный код. Поле <code>attemptsLeft</code> — сколько осталось.</td></tr>
+    <tr><td><code>CODE_INVALID_LOCKED</code></td><td>403</td><td>Попытки исчерпаны, запросить новый код.</td></tr>
+    <tr><td><code>CODE_EXPIRED</code></td><td>410</td><td>Код просрочен (10 минут).</td></tr>
+    <tr><td><code>rate_limited</code></td><td>429</td><td>Слишком частые запросы. Заголовок <code>Retry-After</code>.</td></tr>
+    <tr><td><code>Unauthorized</code></td><td>401</td><td>Невалидный/просроченный JWT — нужно <code>/auth/refresh</code> или повторный login.</td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════════════ 14. SECURITY -->
+<h2 id="security">14. Безопасность — чек-лист для разработчика</h2>
+
+<div class="callout danger">
+  <strong>Критично.</strong> Любая утечка <code>WEB_SERVICE_API_KEY</code> = возможность злоумышленнику обнулять чужие бонусные балансы (или, хуже, делать refund на чужие карты). Обращайтесь с ним как с паролем от БД.
+</div>
+
+<h3>Что должен сделать Bitrix-разработчик</h3>
+<ol>
+  <li><strong>WEB_SERVICE_API_KEY</strong> — хранить в <code>bitrix/.settings.php</code> или ENV-переменной хостинга. <strong>Никогда</strong> не коммитить в git, не выводить на фронт, не логировать.</li>
+  <li><strong>Все запросы к 5LB API</strong> делать ТОЛЬКО с PHP-бэка Bitrix (server-to-server). Браузер юзера должен ходить только на <code>mobile.5lb.pro/api/v1/auth/...</code>, <code>/profile/...</code>, <code>/bonuses/...</code>, <code>/web/orders/quote</code> — там <code>X-Service-Key</code> не используется, защита — только user JWT.</li>
+  <li><strong>Cookies</strong>: для домена <code>5lb.pro</code> запросить у 5LB-команды настройку <code>Set-Cookie Domain=.5lb.pro; SameSite=Lax</code> — тогда фронт автоматически шлёт <code>accessToken</code> с каждым запросом, и не надо хранить JWT в localStorage (защищает от XSS).</li>
+  <li><strong>CSRF</strong>: cookie-режим уязвим к CSRF на мутирующих запросах. Защита — либо стандартный Bitrix CSRF-токен в формах checkout (рекомендуется), либо проверка <code>Origin</code>-заголовка на стороне Bitrix-бэка перед обращением к 5LB. На стороне 5LB API CORS-allowlist уже отсекает левые origin'ы.</li>
+  <li><strong>Валидация на стороне Bitrix.</strong> Перед вызовом <code>/web/orders</code>:
+    <ul>
+      <li>Проверьте, что <code>bonusAmount</code> с фронта &le; <code>maxRedemptionPercent * totalSum / 100</code>. Бэк всё равно обрежет, но лучше отдать юзеру вразумительную ошибку до запроса.</li>
+      <li>Проверьте, что <code>totalSumRub</code> совпадает с реальной суммой корзины (юзер не отредактировал её JS-консолью).</li>
+      <li>Проверьте, что <code>userCardId</code> присутствует в списке карт юзера, полученном с <code>/bonuses/cards</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Retry-логика.</strong> Сеть может моргнуть в момент <code>POST /web/orders</code> и вы не узнаете, прошёл ли запрос. Решение: всегда повторите <code>POST</code> с тем же <code>externalId</code> — наш бэк идемпотентен и вернёт <code>duplicate=true</code> вместо двойного списания. Через 3 неудачные попытки — оповестить менеджера.</li>
+  <li><strong>Refund</strong>: всегда идемпотентен. Можно запускать из очереди (Bitrix events) и не бояться повторов.</li>
+  <li><strong>Логирование.</strong> Записывайте в Bitrix-лог каждый ответ от 5LB API: <code>orderId</code>, <code>bonusDeducted</code>, HTTP-статус. При расхождении балансов будет проще разобраться.</li>
+  <li><strong>HTTPS only.</strong> Все запросы только на <code>https://mobile.5lb.pro</code>. <code>http://</code> отдаст 301, но лучше не полагаться на редиректы.</li>
+</ol>
+
+<h3>Что обеспечивает 5LB-бэк</h3>
+<ul>
+  <li>JWT-токены подписаны HS256 (32+ байта секрет), TTL 15 минут для refresh-флоу или permanent для phone/email OTP.</li>
+  <li>Refresh-токены ротируются (старый сразу инвалидируется).</li>
+  <li>SMS/Email OTP — 4/6 цифр, bcrypt-hash в БД, constant-time сравнение, до 5 попыток, TTL 10 минут.</li>
+  <li><code>X-Service-Key</code> сравнивается через <code>subtle::ConstantTimeEq</code> — нельзя выяснить ключ по timing.</li>
+  <li>Все запросы к БД — параметризированные (<code>sqlx::query!</code> макрос), SQL-инъекции невозможны.</li>
+  <li>Списание / refund — единая транзакция Postgres, атомарно. Race-condition'ы с одной картой защищены row-level lock'ом в <code>UPDATE ... RETURNING</code>.</li>
+  <li>Идемпотентность <code>externalId</code> — UNIQUE-индекс на <code>purchases.externalId</code> + retry в коде.</li>
+  <li>CORS allowlist — только явные origin'ы (5LB-команда добавит ваш домен).</li>
+  <li>Rate limits: 5/мин на <code>/auth/refresh</code> per IP, OTP-лимиты per phone/email.</li>
+</ul>
+
+<hr>
+
+<p class="small">
+  Документ описывает контракт API на <strong>2026-05-20</strong>. Все изменения формата (новые поля — backwards-compatible; удаление полей — major-bump) согласовываются с интегратором заранее.<br>
+  Вопросы / баги интеграции — backend-команде 5LB.
+</p>
+
+</body>
+</html>
